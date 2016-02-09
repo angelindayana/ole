@@ -270,7 +270,7 @@ public class OleDsNgOverlayProcessor extends OleDsNgOverlayProcessorHelper imple
                     ItemRecord itemRecord = itemRecordAndDataMapping.getItemRecord();
                     if (holdingsRecord.getHoldingsId().equals(itemRecord.getHoldingsId())) {
                         ItemResponse itemResponse = new ItemResponse();
-                        itemResponse.setItemId(itemRecord.getItemId());
+                        itemResponse.setItemId(DocumentUniqueIDPrefix.PREFIX_WORK_ITEM_OLEML+ "-" + itemRecord.getItemId());
                         itemResponse.setOperation(OleNGConstants.UPDATED);
                         itemResponses.add(itemResponse);
                     }
@@ -965,21 +965,6 @@ public class OleDsNgOverlayProcessor extends OleDsNgOverlayProcessorHelper imple
         }
 
         return bibRecord;
-    }
-
-    private List<HoldingsResponse> holdingsResponse(Exchange exchange, List holdingRecords, String operation) {
-        List<HoldingsResponse> holdingsResponses = new ArrayList<HoldingsResponse>();
-        if (CollectionUtils.isNotEmpty(holdingRecords)) {
-            for (Iterator iterator = holdingRecords.iterator(); iterator.hasNext(); ) {
-                HoldingsResponse holdingsResponse = new HoldingsResponse();
-                HoldingsRecord holdingsRecord = (HoldingsRecord) iterator.next();
-                holdingsResponse.setOperation(operation);
-                holdingsResponse.setHoldingsId(holdingsRecord.getUniqueIdPrefix() + "-" + holdingsRecord.getHoldingsId());
-                holdingsResponse.setItemResponses(prepareItemsResponse(holdingsRecord, exchange));
-                holdingsResponses.add(holdingsResponse);
-            }
-        }
-        return holdingsResponses;
     }
 
     private List<ItemResponse> prepareItemsResponse(HoldingsRecord holdingsRecord, Exchange exchange) {

@@ -1,5 +1,7 @@
 package org.kuali.ole.constants;
 
+import java.text.SimpleDateFormat;
+
 /**
  * Created by SheikS on 1/6/2016.
  */
@@ -225,6 +227,11 @@ public class OleNGConstants {
     public final static String INDEX = "index";
 
     public static final String FORWARD_SLASH = "/";
+
+    public static final String TIMESTAMP_FOR_CAMEL = "-${date:now:yyyy-MMM-dd-hh-mm-ss-a}";
+
+
+    public static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyyMMMddhhmmssa");
 
 
 }

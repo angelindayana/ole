@@ -11,6 +11,11 @@ import org.codehaus.jettison.json.JSONObject;
 import org.kuali.ole.constants.OleNGConstants;
 import org.kuali.ole.docstore.common.constants.DocstoreConstants;
 import org.kuali.ole.docstore.common.response.OleNGBibImportResponse;
+import org.kuali.ole.oleng.batch.profile.model.BatchProcessProfile;
+import org.kuali.ole.oleng.batch.profile.model.BatchProfileAddOrOverlay;
+import org.kuali.ole.oleng.batch.profile.model.BatchProfileDataMapping;
+import org.kuali.ole.oleng.batch.profile.model.MarcDataField;
+import org.kuali.ole.oleng.batch.reports.BatchContentReportLogHandler;
 import org.kuali.ole.oleng.batch.profile.model.*;
 import org.kuali.ole.oleng.batch.reports.BatchReportLogHandler;
 import org.kuali.ole.utility.OleDsNgRestClient;
@@ -42,6 +47,9 @@ public class BatchBibFileProcessor extends BatchFileProcessor {
         int matchedBibsCount = 0;
         int unmatchedBibsCount = 0;
         int multipleMatchedBibsCount = 0;
+        List<Record> matchedRecords = new ArrayList<>();
+        List<Record> unmatchedRecords = new ArrayList<>();
+        List<Record> multipleMatchedRecords = new ArrayList<>();
         for (int index=0 ; index < records.size(); index++){
             Record marcRecord = records.get(index);
             JSONObject jsonObject = null;
@@ -54,6 +62,7 @@ public class BatchBibFileProcessor extends BatchFileProcessor {
                     if (null == results || results.size() > 1) {
                         System.out.println("**** More than one record found for query : " + query);
                         multipleMatchedBibsCount = multipleMatchedBibsCount + results.size();
+                        multipleMatchedRecords.add(marcRecord);
                         continue;
                     }
 
@@ -62,14 +71,17 @@ public class BatchBibFileProcessor extends BatchFileProcessor {
                         String bibId = (String) solrDocument.getFieldValue(DocstoreConstants.LOCALID_DISPLAY);
                         jsonObject = prepareRequest(bibId, marcRecord, batchProcessProfile);
                         matchedBibsCount = matchedBibsCount + 1;
+                        matchedRecords.add(marcRecord);
                     } else {
                         jsonObject = prepareRequest(null, marcRecord, batchProcessProfile);
                         unmatchedBibsCount = unmatchedBibsCount + 1;
+                        unmatchedRecords.add(marcRecord);
                     }
                 }
             } else {
                 jsonObject = prepareRequest(null, marcRecord, batchProcessProfile);
                 unmatchedBibsCount = unmatchedBibsCount + 1;
+                unmatchedRecords.add(marcRecord);
             }
             jsonArray.put(jsonObject);
         }
@@ -81,7 +93,28 @@ public class BatchBibFileProcessor extends BatchFileProcessor {
                 oleNGBibImportResponse.setMatchedBibsCount(matchedBibsCount);
                 oleNGBibImportResponse.setUnmatchedBibsCount(unmatchedBibsCount);
                 oleNGBibImportResponse.setMultipleMatchedBibsCount(multipleMatchedBibsCount);
-                generateBatchReport(oleNGBibImportResponse);
+                generateBatchReport(oleNGBibImportResponse, batchProcessProfile);
+                if(CollectionUtils.isNotEmpty(matchedRecords)) {
+                    String matchedMarcRawContent = getMarcRecordUtil().convertMarcRecordListToRawMarcContent(matchedRecords);
+                    BatchContentReportLogHandler batchContentReportLogHandler = BatchContentReportLogHandler.getInstance();
+                    String timestamp = OleNGConstants.DATE_FORMAT.format(new Date());
+                    batchContentReportLogHandler.initializeEndPoint(timestamp, null, batchProcessProfile.getBatchProcessProfileName()+"-Matched", ".mrc");
+                    batchContentReportLogHandler.logMessage(timestamp, matchedMarcRawContent);
+                }
+                if(CollectionUtils.isNotEmpty(unmatchedRecords)) {
+                    String unmatchedMarcRawContent = getMarcRecordUtil().convertMarcRecordListToRawMarcContent(unmatchedRecords);
+                    BatchContentReportLogHandler batchContentReportLogHandler = BatchContentReportLogHandler.getInstance();
+                    String timestamp = OleNGConstants.DATE_FORMAT.format(new Date());
+                    batchContentReportLogHandler.initializeEndPoint(timestamp, null, batchProcessProfile.getBatchProcessProfileName()+"-UnMatched", ".mrc");
+                    batchContentReportLogHandler.logMessage(timestamp, unmatchedMarcRawContent);
+                }
+                if(CollectionUtils.isNotEmpty(multipleMatchedRecords)) {
+                    String multipleMatchedMarcRawContent = getMarcRecordUtil().convertMarcRecordListToRawMarcContent(multipleMatchedRecords);
+                    BatchContentReportLogHandler batchContentReportLogHandler = BatchContentReportLogHandler.getInstance();
+                    String timestamp = OleNGConstants.DATE_FORMAT.format(new Date());
+                    batchContentReportLogHandler.initializeEndPoint(timestamp, null, batchProcessProfile.getBatchProcessProfileName()+"-Multi-Matched", ".mrc");
+                    batchContentReportLogHandler.logMessage(timestamp, multipleMatchedMarcRawContent);
+                }
             } catch (IOException e) {
                 e.printStackTrace();
             } catch (Exception e) {
@@ -91,9 +124,11 @@ public class BatchBibFileProcessor extends BatchFileProcessor {
         return response;
     }
 
-    public void generateBatchReport(OleNGBibImportResponse oleNGBibImportResponse) throws Exception {
+    public void generateBatchReport(OleNGBibImportResponse oleNGBibImportResponse, BatchProcessProfile batchProcessProfile) throws Exception {
         BatchReportLogHandler batchReportLogHandler = BatchReportLogHandler.getInstance();
-        batchReportLogHandler.logMessage(oleNGBibImportResponse);
+        String timeStamp = OleNGConstants.DATE_FORMAT.format(new Date());
+        batchReportLogHandler.initializeEndPoint(timeStamp,null, "Bib-Import_"+batchProcessProfile.getBatchProcessProfileName(), ".txt");
+        batchReportLogHandler.logMessage(timeStamp,oleNGBibImportResponse);
     }
 
     private String getOperationInd(String operation) {
